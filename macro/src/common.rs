@@ -136,7 +136,14 @@ pub(crate) mod kw {
     syn::custom_keyword!(skip);
     syn::custom_keyword!(configurable);
     syn::custom_keyword!(enumerable);
+    syn::custom_keyword!(writable);
+    syn::custom_keyword!(prop);
     syn::custom_keyword!(prefix);
     syn::custom_keyword!(declare);
     syn::custom_keyword!(evaluate);
+    syn::custom_keyword!(exotic);
+    syn::custom_keyword!(delete);
+    syn::custom_keyword!(has);
+    syn::custom_keyword!(get_own_property);
+    syn::custom_keyword!(get_own_property_names);
 }

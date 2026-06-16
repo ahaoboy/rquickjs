@@ -39,9 +39,9 @@ pub use persistent::Persistent;
 pub use result::{CatchResultExt, CaughtError, CaughtResult, Error, Result, ThrowResultExt};
 pub use value::{
     array, atom, convert, function, module, object, promise, proxy, Array, Atom, BigInt, CString,
-    Coerced, Exception, Filter, FromAtom, FromIteratorJs, FromJs, Function, IntoAtom, IntoJs,
-    IteratorJs, Module, Null, Object, Promise, Proxy, String, Symbol, Type, Undefined, Value,
-    WriteOptions, WriteOptionsEndianness,
+    Coerced, Constructor, Exception, Filter, FromAtom, FromIteratorJs, FromJs, Function, IntoAtom,
+    IntoJs, IteratorJs, Module, Null, Object, Promise, Proxy, String, Symbol, Type, Undefined,
+    Value, WriteOptions, WriteOptionsEndianness,
 };
 
 pub mod allocator;
@@ -57,7 +57,7 @@ pub use context::MultiWith;
 #[cfg(feature = "futures")]
 #[cfg_attr(feature = "doc-cfg", doc(cfg(feature = "futures")))]
 pub use runtime::AsyncRuntime;
-pub use value::{ArrayBuffer, Iterable, JsIterator, TypedArray};
+pub use value::{ArrayBuffer, ArrayBufferSource, Iterable, IterableFn, JsIterator, TypedArray};
 
 //#[doc(hidden)]
 pub mod qjs {

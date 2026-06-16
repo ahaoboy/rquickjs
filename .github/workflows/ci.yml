@@ -42,7 +42,7 @@ jobs:
           DOCS_RS: 1
         run: cargo doc --no-deps --features full-async,parallel,doc-cfg,bindgen
       - name: Upload docs
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: docs
           path: |
@@ -71,7 +71,7 @@ jobs:
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
-        msrv: [1.85.0]
+        msrv: [1.87.0]
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v6
@@ -106,7 +106,7 @@ jobs:
       - name: Record Rust version
         run: echo "RUST=$(rustc --version)" >> "$GITHUB_ENV"
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -223,6 +223,18 @@ jobs:
             features: full-async
 
           - task: bindings
+            os: ubuntu-latest
+            rust: stable
+            target: armv7-unknown-linux-gnueabihf
+            features: full-async
+
+          - task: bindings
+            os: ubuntu-latest
+            rust: stable
+            target: powerpc64-unknown-linux-gnu
+            features: full-async
+
+          - task: bindings
             os: ubuntu-24.04
             rust: nightly
             target: loongarch64-unknown-linux-musl
@@ -231,6 +243,12 @@ jobs:
             os: ubuntu-24.04
             rust: nightly
             target: loongarch64-unknown-linux-gnu
+            features: full-async
+
+          - task: bindings
+            os: ubuntu-24.04
+            rust: stable
+            target: riscv64gc-unknown-linux-gnu
             features: full-async
 
           - task: bindings
@@ -270,6 +288,11 @@ jobs:
             rust: stable
             target: x86_64-unknown-linux-gnu
             features: disable-assertions
+          - task: features
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+            features: half
 
           # Test channels
           - task: channels
@@ -293,7 +316,7 @@ jobs:
         with:
           submodules: true
       - name: Setup cross linux toolchain
-        if: contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'aarch64') && !startsWith(matrix.target, 'loongarch64') && !startsWith(matrix.target, 'x86_64-') && !endsWith(matrix.target, '-musl')
+        if: contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'aarch64') && !startsWith(matrix.target, 'armv7') && !startsWith(matrix.target, 'loongarch64') && !startsWith(matrix.target, 'riscv64') && !startsWith(matrix.target, 'x86_64-') && !endsWith(matrix.target, '-musl') && !startsWith(matrix.target, 'powerpc64')
         run: |
           case "${{ matrix.target }}" in
             i686-*) SYSTEM_ARCH=i386 ;;
@@ -308,6 +331,36 @@ jobs:
       - name: Setup musl-tools
         if: startsWith(matrix.target, 'x86_64-') && endsWith(matrix.target, '-musl')
         run: sudo apt-get update -y && sudo apt-get install -y musl-tools
+
+      - name: Setup armv7 toolchain
+        if: startsWith(matrix.target, 'armv7') && contains(matrix.target, '-linux-')
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            libc6-armhf-cross \
+            libc6-dev-armhf-cross \
+            gcc-arm-linux-gnueabihf \
+            qemu-user
+          echo "CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+          echo "CXX_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-g++" >> $GITHUB_ENV
+          echo "AR_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-ar" >> $GITHUB_ENV
+          echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_RUNNER=qemu-arm -L /usr/arm-linux-gnueabihf" >> $GITHUB_ENV
+
+      - name: Setup powerpc64 toolchain
+        if: startsWith(matrix.target, 'powerpc64') && endsWith(matrix.target, '-gnu')
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            libc6-ppc64-cross \
+            libc6-dev-ppc64-cross \
+            gcc-powerpc64-linux-gnu \
+            qemu-user
+          echo "CC_powerpc64_unknown_linux_gnu=powerpc64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_powerpc64_unknown_linux_gnu=powerpc64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "AR_powerpc64_unknown_linux_gnu=powerpc64-linux-gnu-ar" >> $GITHUB_ENV
+          echo "CARGO_TARGET_POWERPC64_UNKNOWN_LINUX_GNU_LINKER=powerpc64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_POWERPC64_UNKNOWN_LINUX_GNU_RUNNER=qemu-ppc64 -L /usr/powerpc64-linux-gnu" >> $GITHUB_ENV
 
       - name: Setup gnu aarch64
         if: startsWith(matrix.target, 'aarch64') && endsWith(matrix.target, '-gnu')
@@ -408,6 +461,27 @@ jobs:
           echo 'rustflags = ["-C", "linker=loongarch64-linux-gnu-gcc-14"]' >> ~/.cargo/config.toml
 
           echo "/musl/bin" >> $GITHUB_PATH
+
+      - name: Setup cross riscv64
+        if: startsWith(matrix.target, 'riscv64') && contains(matrix.target, '-linux-')
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            clang \
+            crossbuild-essential-riscv64 \
+            qemu-user
+
+          mkdir -p ~/.cargo/
+          cat >> ~/.cargo/config.toml <<EOF
+          [target.riscv64gc-unknown-linux-gnu]
+          linker = "riscv64-linux-gnu-gcc"
+          runner = "qemu-riscv64"
+          rustflags = ["-C", "link-arg=-latomic"]
+          rustdocflags = ["-C", "link-arg=-latomic"]
+          EOF
+
+          echo "LD_LIBRARY_PATH=/usr/riscv64-linux-gnu/lib" >> $GITHUB_ENV
+          sudo ln -s /usr/riscv64-linux-gnu/lib/ld-linux-riscv64-lp64d.so.1 /lib/ld-linux-riscv64-lp64d.so.1
       - name: Setup wasmtime for wasm32-wasip1 and wasm32-wasip2
         if: matrix.target == 'wasm32-wasip1' || matrix.target == 'wasm32-wasip2'
         uses: bytecodealliance/actions/wasmtime/setup@v1
@@ -446,7 +520,7 @@ jobs:
           cat sys/src/bindings/${{ matrix.target }}.rs
       - name: Upload bindings
         if: matrix.task == 'bindings'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bindings-${{ matrix.target }}
           path: sys/src/bindings/${{ matrix.target }}.rs
@@ -464,7 +538,10 @@ jobs:
         env:
           RUST_BACKTRACE: full
         run: |
-          ${{ matrix.target == 'wasm32-wasip1' && 'CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime' || '' }} ${{ matrix.target == 'wasm32-wasip2' && 'CARGO_TARGET_WASM32_WASIP2_RUNNER=wasmtime' || '' }} cargo test ${{ matrix.optimization && '--release' || '' }} --all ${{ (matrix.target == 'wasm32-wasip1' || matrix.target == 'wasm32-wasip2') && '--exclude module-loader' || ''  }} --target ${{ matrix.target }} --no-default-features --features ${{ matrix.features }}
+          # Limit test threads to 1 for QEMU-emulated targets to work around an intermittent
+          # QEMU user-mode emulation bug: "QEMU internal SIGSEGV {code=MAPERR, addr=0x20}"
+          # This is a race condition in QEMU's thread emulation, not a bug in rquickjs.
+          ${{ (startsWith(matrix.target, 'loongarch64') || startsWith(matrix.target, 'riscv64') || startsWith(matrix.target, 'aarch64-unknown-linux') || startsWith(matrix.target, 'armv7') || startsWith(matrix.target, 'powerpc64')) && 'RUST_TEST_THREADS=1' || '' }} ${{ matrix.target == 'wasm32-wasip1' && 'CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime' || '' }} ${{ matrix.target == 'wasm32-wasip2' && 'CARGO_TARGET_WASM32_WASIP2_RUNNER=wasmtime' || '' }} cargo test ${{ matrix.optimization && '--release' || '' }} --all ${{ (matrix.target == 'wasm32-wasip1' || matrix.target == 'wasm32-wasip2') && '--exclude module-loader' || ''  }} --target ${{ matrix.target }} --no-default-features --features ${{ matrix.features }}
 
   update-bindings:
     if: ${{ github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/') }}
@@ -474,7 +551,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Download bindings
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: bindings-*
           path: sys/src/bindings

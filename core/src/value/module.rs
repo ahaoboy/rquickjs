@@ -143,6 +143,11 @@ impl<'js> Declarations<'js> {
         unsafe { qjs::JS_AddModuleExport(self.0.ctx.as_ptr(), self.0.as_ptr(), name.as_ptr()) };
         Ok(self)
     }
+
+    /// Returns the module being declared.
+    pub fn module(&self) -> &Module<'js, Declared> {
+        &self.0
+    }
 }
 
 /// A struct used for setting the value of previously declared exporsts of a module.
@@ -173,6 +178,11 @@ impl<'js> Exports<'js> {
         }
 
         Ok(self)
+    }
+
+    /// Returns the module being exported.
+    pub fn module(&self) -> &Module<'js, Declared> {
+        &self.0
     }
 }
 
@@ -237,6 +247,11 @@ impl<'js, T> Module<'js, T> {
             )
         };
         N::from_atom(name)
+    }
+
+    /// Returns the context the module is associated with.
+    pub fn ctx(&self) -> &Ctx<'js> {
+        &self.ctx
     }
 }
 
@@ -362,6 +377,9 @@ impl<'js> Module<'js, Declared> {
     /// The return value of the promise is the JavaScript value undefined.
     pub fn eval(self) -> Result<(Module<'js, Evaluated>, Promise<'js>)> {
         let ret = unsafe {
+            #[cfg(feature = "parallel")]
+            qjs::JS_UpdateStackTop(qjs::JS_GetRuntime(self.ctx.as_ptr()));
+
             // JS_EvalFunction `free's` the module so we should dup first
             let v = qjs::JS_MKPTR(qjs::JS_TAG_MODULE, self.ptr.as_ptr().cast());
             qjs::JS_DupValue(self.ctx.as_ptr(), v);

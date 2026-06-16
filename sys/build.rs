@@ -140,13 +140,7 @@ fn main() {
         "quickjs.h",
     ];
 
-    let source_files = [
-        "libregexp.c",
-        "libunicode.c",
-        "cutils.c",
-        "quickjs.c",
-        "dtoa.c",
-    ];
+    let source_files = ["libregexp.c", "libunicode.c", "quickjs.c", "dtoa.c"];
 
     let mut defines: Vec<(String, Option<&str>)> = vec![("_GNU_SOURCE".into(), None)];
 
@@ -214,7 +208,7 @@ fn main() {
     }
     fs::copy("quickjs.bind.h", out_dir.join("quickjs.bind.h")).expect("Unable to copy source");
 
-    if target_os == "wasi" {
+    if target_os == "wasi" && !matches!(env::var("RQUICKJS_SYS_NO_WASI_SDK").as_deref(), Ok("1")) {
         let wasi_sdk_path = get_wasi_sdk_path();
         if !wasi_sdk_path.try_exists().unwrap() {
             panic!(
@@ -299,7 +293,7 @@ where
 }
 
 #[cfg(feature = "bindgen")]
-fn bindgen<'a, D, H, X, K, V>(out_dir: D, header_file: H, defines: X, mut add_cflags: Vec<String>)
+fn bindgen<'a, D, H, X, K, V>(out_dir: D, header_file: H, defines: X, add_cflags: Vec<String>)
 where
     D: AsRef<Path>,
     H: AsRef<Path>,
@@ -307,18 +301,10 @@ where
     K: AsRef<str> + 'a,
     V: AsRef<str> + 'a,
 {
-    let mut target = env::var("TARGET").unwrap();
     let out_dir = out_dir.as_ref();
     let header_file = header_file.as_ref();
 
-    // *-pc-windows-gnullvm is special for Rust, Clang accepts only
-    // *-pc-windows-gnu
-    if target.ends_with("windows-gnullvm") {
-        target = target.replace("llvm", "");
-    }
-
-    let mut cflags = vec![format!("--target={}", target)];
-    cflags.append(&mut add_cflags);
+    let mut cflags = add_cflags;
 
     //format!("-I{}", out_dir.parent().display()),
 
@@ -364,7 +350,7 @@ where
         let dest_dir = Path::new("src").join("bindings");
         fs::create_dir_all(&dest_dir).unwrap();
 
-        let dest_file = format!("{}.rs", target);
+        let dest_file = format!("{}.rs", env::var("TARGET").unwrap());
         fs::copy(&bindings_file, dest_dir.join(dest_file)).unwrap();
     }
 }

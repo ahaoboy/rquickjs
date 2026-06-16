@@ -9,15 +9,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 
-- Added import attributes to the Loader trait #[601](https://github.com/DelSkayn/rquickjs/pull/601)\
+### Added
 
 ### Changed
 
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.12.0] - 2026-05-26
+
+### Breaking Changes
+
+- Added import attributes to the Loader trait #[601](https://github.com/DelSkayn/rquickjs/pull/601)
+- Added half support (f16) for Float16Array # [662](https://github.com/DelSkayn/rquickjs/pull/662)
+- `Value::new_big_int` now returns `Result<Value>` so QuickJS allocation failures are surfaced to the caller #[585](https://github.com/DelSkayn/rquickjs/issues/585)
+
+### Added
+
+- Added `#[qjs(prop)]` method attribute to declare a JS data property on a class prototype.
+  Unlike `#[qjs(get)]`, which generates an accessor and requires a `FromJs<Self>` receiver,
+  `prop` is evaluated at class registration time and emits a plain data descriptor (matching
+  Web IDL semantics for `@@toStringTag`, `@@species`, etc.). Honours `rename`, `configurable`,
+  `enumerable`, and a new `writable` flag (which also gates `writable` on `prop`).
+- Added `FromJs` and `IntoJs` derive macros for plain-data structs
+- Added `RQUICKJS_SYS_NO_WASI_SDK` env variable that skips downloading and setting up the WASI SDK when set to `1` #[648](https://github.com/DelSkayn/rquickjs/pull/648)
+- Added `Object::new_proto` for creating objects with a custom or null prototype #[572](https://github.com/DelSkayn/rquickjs/issues/572)
+- Added `Symbol::new`, `Symbol::with_description`, and `Symbol::new_global` for creating local and global symbols from Rust #[672](https://github.com/DelSkayn/rquickjs/pull/672)
+- Added `ArrayBufferSource` trait and `ArrayBuffer::from_source` / `from_source_shared` / `from_source_immutable` safe constructors for wrapping external, caller-owned buffers, with built-in impls for `Vec<u8>`, `Box<[u8]>`, `Arc<[u8]>`, `Arc<Vec<u8>>`, and (behind the `bytes` feature) `bytes::Bytes`
+- Add pre-generated bindings for `armv7-unknown-linux-gnueabihf`
+- Add pre-generated bindings for `powerpc64-unknown-linux-gnu`
+
+### Changed
+
+- Bump MSRV to 1.87
 - Updated `AsyncContext::async_with` to use async closure syntax #[602](https://github.com/DelSkayn/rquickjs/pull/602)
 
 ### Deprecated
 
 - Deprecated `async_with!` macro #[602](https://github.com/DelSkayn/rquickjs/pull/602)
+
+### Fixed
+
+- Fixed `Property::configurable()` / `.writable()` / `.enumerable()` not emitting `JS_PROP_HAS_*` flags, so redefining an existing property silently kept its old attributes #[693](https://github.com/DelSkayn/rquickjs/issues/693)
+- Fixed QuickJS rope strings (`JS_TAG_STRING_ROPE`) not being recognized as strings, causing `type_of()`, `is_string()`, and `as_string()` to fail on large concatenated strings
+- Fixed interrupt handler causing GC assertion failure due to missing `JS_DupContext` on error context from `JS_ExecutePendingJob` #[664](https://github.com/DelSkayn/rquickjs/pull/664)
+- Fixed cross-thread stack overflow false positives in parallel mode by updating stack baseline before QuickJS C entry points
+- Fixed promise polling not returning Ready variant when exception occurs
+- Fixed promise future aborting on stale pending exceptions by only bailing on uncatchable errors (e.g. interrupt handler)
+- Fixed iterators to use correct IteratorPrototype chain
+- Fixed a latent ABI layout vulnerability in `JS_NewPromiseCapability` FFI boundary by replacing tuple with strictly compatible array
+- `#[rquickjs::class]` now rejects fields whose type implements `JsClass` with a clear compile error; such fields silently dropped nested mutations because the generated getter cloned the value. Wrap the field in `Class<'js, T>` instead #[532](https://github.com/DelSkayn/rquickjs/issues/532)
+- Added missing `Trace` implementations for `Constructor`, `Promise`, `Proxy`, `ArrayBuffer`, and `TypedArray`; added `JsLifetime` for `Proxy`; re-exported `Constructor` at the crate root
+- Fixed `#[qjs(static, rename = PredefinedAtom::...)]` methods failing when the target symbol exists as a non-writable property on `Function.prototype` (e.g. `Symbol.hasInstance`) by defining properties directly on the constructor instead of going through the prototype chain #[315](https://github.com/DelSkayn/rquickjs/issues/315)
+- Fixed `#[qjs(static, get/set)]` accessors being placed on the class prototype instead of the constructor #[478](https://github.com/DelSkayn/rquickjs/issues/478)
+- Fixed `Runtime::set_max_stack_size` crashing on large values (e.g. `usize::MAX`) by clamping to avoid a pointer underflow inside QuickJS's stack limit check #[437](https://github.com/DelSkayn/rquickjs/issues/437)
 
 ## [0.11.0] - 2025-12-16
 

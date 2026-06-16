@@ -147,6 +147,10 @@ impl<'js> Ctx<'js> {
         let src = source.into();
         let len = src.len();
         let src = CString::new(src)?;
+
+        #[cfg(feature = "parallel")]
+        qjs::JS_UpdateStackTop(qjs::JS_GetRuntime(self.ctx.as_ptr()));
+
         let val = qjs::JS_Eval(
             self.ctx.as_ptr(),
             src.as_ptr(),
@@ -255,6 +259,11 @@ impl<'js> Ctx<'js> {
             let v = qjs::JS_GetException(self.ctx.as_ptr());
             Value::from_js_value(self.clone(), v)
         }
+    }
+
+    /// Returns true if there is a pending JavaScript exception.
+    pub fn has_exception(&self) -> bool {
+        unsafe { qjs::JS_HasException(self.ctx.as_ptr()) }
     }
 
     /// Throws a JavaScript value as a new exception.
@@ -372,14 +381,14 @@ impl<'js> Ctx<'js> {
 
     /// Creates javascipt promise along with its reject and resolve functions.
     pub fn promise(&self) -> Result<(Promise<'js>, Function<'js>, Function<'js>)> {
-        let mut funcs = mem::MaybeUninit::<(qjs::JSValue, qjs::JSValue)>::uninit();
+        let mut funcs = mem::MaybeUninit::<[qjs::JSValue; 2]>::uninit();
 
         Ok(unsafe {
             let promise = self.handle_exception(qjs::JS_NewPromiseCapability(
                 self.ctx.as_ptr(),
                 funcs.as_mut_ptr() as _,
             ))?;
-            let (resolve, reject) = funcs.assume_init();
+            let [resolve, reject] = funcs.assume_init();
             (
                 Promise::from_js_value(self.clone(), promise),
                 Function::from_js_value(self.clone(), resolve),

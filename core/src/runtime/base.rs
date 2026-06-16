@@ -6,7 +6,7 @@ use super::{
 use crate::allocator::Allocator;
 #[cfg(feature = "loader")]
 use crate::loader::{Loader, Resolver};
-use crate::{result::JobException, Context, Mut, Ref, Result, Weak};
+use crate::{qjs, result::JobException, Context, Mut, Ref, Result, Weak};
 use alloc::{ffi::CString, vec::Vec};
 use core::{ptr::NonNull, result::Result as StdResult};
 
@@ -182,12 +182,11 @@ impl Runtime {
         let mut lock = self.inner.lock();
         lock.update_stack_top();
         lock.execute_pending_job().map_err(|e| {
-            JobException(unsafe {
-                Context::from_raw(
-                    NonNull::new(e).expect("QuickJS returned null ptr for job error"),
-                    self.clone(),
-                )
-            })
+            let ptr = NonNull::new(e).expect("QuickJS returned null ptr for job error");
+            // JS_ExecutePendingJob returns a borrowed context pointer;
+            // dup it so Context can own a reference.
+            unsafe { qjs::JS_DupContext(ptr.as_ptr()) };
+            JobException(unsafe { Context::from_raw(ptr, self.clone()) })
         })
     }
 }
@@ -217,5 +216,27 @@ mod test {
         rt.set_memory_limit(0xFFFF);
         rt.set_gc_threshold(0xFF);
         rt.run_gc();
+    }
+
+    #[test]
+    fn set_max_stack_size_large_values() {
+        let rt = Runtime::new().unwrap();
+        rt.set_max_stack_size(usize::MAX);
+        let ctx = crate::Context::full(&rt).unwrap();
+        ctx.with(|ctx| {
+            ctx.eval::<i32, _>("1 + 1").unwrap();
+        });
+        rt.set_max_stack_size(isize::MAX as usize);
+        ctx.with(|ctx| {
+            ctx.eval::<i32, _>("1 + 1").unwrap();
+        });
+        rt.set_max_stack_size(0);
+        ctx.with(|ctx| {
+            ctx.eval::<i32, _>("1 + 1").unwrap();
+        });
+        rt.set_max_stack_size(256 * 1024);
+        ctx.with(|ctx| {
+            ctx.eval::<i32, _>("1 + 1").unwrap();
+        });
     }
 }
