@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add pre-generated bindings for `riscv64gc-unknown-linux-gnu` and `riscv64a23-unknown-linux-gnu`
+
 ### Changed
 
 ### Deprecated
@@ -20,6 +22,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+## [0.12.2] - 2026-07-27
+
+### Added
+
+- Added `TypedArray<U8Clamped>` support for `Uint8ClampedArray`, obtainable via `TypedArray::from_object` and matched by `is_typed_array` like other typed array classes
+
+### Fixed
+
+- Fixed `rquickjs-sys` host build failing during cross-compilation by reusing bundled bindings for the host target instead of running bindgen with a mismatched `libclang` #[709](https://github.com/DelSkayn/rquickjs/issues/709)
+
+## [0.12.1] - 2026-06-29
+
+### Changed
+
+- Updated `phf`, `phf_shared` and `phf_generator` to 0.14
+
+### Fixed
+
+- Fixed `Constructor::new_prototype` leaking a reference cycle that aborted `JS_FreeRuntime` with a `gc_obj_list` assertion failure
 
 ## [0.12.0] - 2026-05-26
 
